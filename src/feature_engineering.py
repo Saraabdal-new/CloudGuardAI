@@ -1,4 +1,4 @@
-
+﻿
 """Extract numerical features from AWS IAM policies."""
 from __future__ import annotations
 
@@ -110,6 +110,8 @@ def extract_features(
     has_privilege_escalation_action = 0
     has_write_action = 0
     has_read_action = 0
+    has_secrets_manager_read_action = 0
+    has_conditional_full_admin = 0
     has_delete_action = 0
     has_service_principal = 0
     has_federated_principal = 0
@@ -143,6 +145,16 @@ def extract_features(
         if effect == "allow" and "*" in statement_resources:
             allows_all_resources = 1
 
+        # Full administrative access in a single Allow statement,
+        # including policies protected by a Condition such as MFA.
+        if (
+            effect == "allow"
+            and "*" in statement_actions
+            and "*" in statement_resources
+            and bool(statement.get("Condition"))
+        ):
+            has_conditional_full_admin = 1
+
         num_wildcard_actions += sum(
             "*" in action or "?" in action
             for action in statement_actions
@@ -160,6 +172,16 @@ def extract_features(
             has_sensitive_service_action = 1
 
         normalized_actions = [action.lower() for action in statement_actions]
+        # Reading secret values is sensitive even when the action is not a wildcard.
+        if effect == "allow" and any(
+            action.lower() in {
+                "secretsmanager:getsecretvalue",
+                "secretsmanager:batchgetsecretvalue",
+            }
+            for action in statement_actions
+        ):
+            has_secrets_manager_read_action = 1
+
         escalation_actions = {
             action.lower() for action in PRIVILEGE_ESCALATION_ACTIONS
         }
@@ -283,6 +305,8 @@ def extract_features(
         # Additional permission and principal features.
         "has_write_action": has_write_action,
         "has_read_action": has_read_action,
+        "has_secrets_manager_read_action": has_secrets_manager_read_action,
+        "has_conditional_full_admin": has_conditional_full_admin,
         "has_delete_action": has_delete_action,
         "has_iam_action": int("iam" in service_names),
         "has_s3_action": int("s3" in service_names),

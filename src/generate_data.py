@@ -304,6 +304,18 @@ def safe_deny_public_principal(rng: random.Random) -> Statement:
 def risky_r1(rng: random.Random) -> Statement:
     return {"Effect": "Allow", "Action": "*", "Resource": "*"}
 
+def risky_admin_with_mfa(rng: random.Random) -> Statement:
+    """Broad administrator access protected by an MFA condition."""
+    return {
+        "Effect": "Allow",
+        "Action": "*",
+        "Resource": "*",
+        "Condition": {
+            "Bool": {
+                "aws:MultiFactorAuthPresent": "true"
+            }
+        },
+    }
 
 def risky_r3(rng: random.Random) -> Statement:
     action = rng.choice(["iam:*", "kms:*", "sts:*", "iam:Create*", "iam:Put*"])
@@ -435,6 +447,7 @@ RISKY_GENERATORS: list[tuple[Generator, int]] = [
     (risky_r7, 2),
     (risky_assume_role_wildcard, 2),
     (risky_secrets_manager_wildcard, 2),
+    (risky_admin_with_mfa, 2),
 ]
 
 
