@@ -6,6 +6,7 @@ from typing import Any
 
 from .data_loader import as_list
 
+DEFAULT_OWN_ACCOUNT_ID = "000000000000"
 
 PRIVILEGE_ESCALATION_ACTIONS = {
     "iam:PassRole",
@@ -17,6 +18,7 @@ PRIVILEGE_ESCALATION_ACTIONS = {
     "iam:PutRolePolicy",
     "iam:AddUserToGroup",
     "iam:UpdateAssumeRolePolicy",
+    "iam:CreatePolicyVersion",
 }
 
 
@@ -41,16 +43,14 @@ def _principal_values(principal: Any) -> list[str]:
     return values
 
 
-def evaluate_statement(statement: dict[str, Any]) -> list[str]:
-    """Return matching misconfiguration rules R1-R7 for one statement."""
+def evaluate_statement(
+    statement: dict[str, Any],
+    own_account_id: str = DEFAULT_OWN_ACCOUNT_ID,
+) -> list[str]:
+    """Return matching misconfiguration rules R1-R10 for one statement."""
     if statement.get("Effect") != "Allow":
         return []
 
-    # This project's simplified policy assumes a non-empty Condition
-    # neutralizes these broad-access rules. This is a demo heuristic,
-    # not a general AWS IAM security guarantee.
-    if _has_condition(statement):
-        return []
 
     action_values = [str(x) for x in as_list(statement.get("Action", []))]
     not_action_values = [
@@ -103,18 +103,50 @@ def evaluate_statement(statement: dict[str, Any]) -> list[str]:
 
     # R7: external AWS account principal without a condition.
     principals = _principal_values(statement.get("Principal"))
-    if any(
+    own_account_prefix = f"arn:aws:iam::{own_account_id}:"
+
+    if not _has_condition(statement) and any(
         "arn:aws:iam::" in principal
-        and not principal.startswith("arn:aws:iam::" + "000000000000")
+        and not principal.startswith(own_account_prefix)
         for principal in principals
     ):
         rules.append("R7")
+
+    # R8: sensitive S3 bucket policy and ACL changes on all resources.
+    sensitive_s3_actions = {
+        "s3:PutBucketPolicy",
+        "s3:PutBucketAcl",
+    }
+    if wildcard_resource and any(
+        action.lower() in {x.lower() for x in sensitive_s3_actions}
+        for action in action_values
+    ):
+        rules.append("R8")
+
+    # R9: sts:AssumeRole allowed on all resources.
+    if wildcard_resource and any(
+        action.lower() == "sts:assumerole"
+        for action in action_values
+    ):
+        rules.append("R9")
+
+    
+    # R10: Secrets Manager secret reads on all resources.
+    sensitive_secrets_actions = {
+        "secretsmanager:GetSecretValue",
+        "secretsmanager:BatchGetSecretValue",
+    }
+    if wildcard_resource and any(
+        action.lower() in {x.lower() for x in sensitive_secrets_actions}
+        for action in action_values
+    ):
+        rules.append("R10")
 
     return rules
 
 
 def label_policy(policy: dict[str, Any]) -> int:
-    """Return 1 if any statement matches R1-R7, otherwise 0."""
+    """Return 1 if any statement matches R1-R10, otherwise 0."""
     statements = as_list(policy.get("Statement", []))
     return int(
         any(

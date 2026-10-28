@@ -5,7 +5,10 @@ from __future__ import annotations
 from typing import Any
 
 from .data_loader import as_list
-from .labeling import PRIVILEGE_ESCALATION_ACTIONS
+from .labeling import (
+    DEFAULT_OWN_ACCOUNT_ID,
+    PRIVILEGE_ESCALATION_ACTIONS,
+)
 
 
 SENSITIVE_SERVICES = ("iam:", "kms:", "sts:")
@@ -24,7 +27,6 @@ READ_VERBS = (
 DELETE_VERBS = ("delete", "remove", "terminate", "detach", "revoke")
 
 # Mirrors the demo account used by rule R7 in labeling.py.
-OWN_ACCOUNT_PREFIX = "arn:aws:iam::000000000000"
 
 def _strings(value: Any) -> list[str]:
     """Convert IAM scalar/list values to normalized strings."""
@@ -42,8 +44,49 @@ def _condition_text(condition: Any) -> str:
         return " ".join(_condition_text(value) for value in condition)
     return str(condition).lower()
 
+def _statement_context_features(statements: list[dict[str, Any]]) -> dict[str, int]:
+    """Features computed per statement, then combined across the policy.
 
-def extract_features(policy: dict[str, Any]) -> dict[str, int]:
+    Aggregate features cannot tell whether a Condition and a wildcard sit in
+    the same statement. These indicators only look at Allow statements that
+    have no Condition.
+    """
+    unconditioned = [
+        s for s in statements
+        if str(s.get("Effect", "")).lower() == "allow"
+        and not (isinstance(s.get("Condition"), dict) and s.get("Condition"))
+    ]
+
+    all_resources = False
+    wildcard_action = False
+    wildcard_on_all = False
+    inverse_match = False
+
+    for statement in unconditioned:
+        actions = _strings(statement.get("Action", []))
+        resources = _strings(statement.get("Resource", []))
+        statement_wildcard = any("*" in action for action in actions)
+        statement_all = "*" in resources
+
+        all_resources = all_resources or statement_all
+        wildcard_action = wildcard_action or statement_wildcard
+        wildcard_on_all = wildcard_on_all or (statement_wildcard and statement_all)
+        inverse_match = inverse_match or bool(
+            statement.get("NotAction") or statement.get("NotResource")
+        )
+
+    return {
+        "num_unconditioned_allow_statements": len(unconditioned),
+        "has_unconditioned_allow_all_resources": int(all_resources),
+        "has_unconditioned_wildcard_action": int(wildcard_action),
+        "has_unconditioned_wildcard_on_all_resources": int(wildcard_on_all),
+        "has_unconditioned_not_action_or_resource": int(inverse_match),
+    }
+
+def extract_features(
+    policy: dict[str, Any],
+    own_account_id: str = DEFAULT_OWN_ACCOUNT_ID,
+) -> dict[str, int]:
     """Convert an IAM policy into numerical features for ML."""
     statements = as_list(policy.get("Statement", []))
     statements = [s for s in statements if isinstance(s, dict)]
@@ -252,13 +295,17 @@ def extract_features(policy: dict[str, Any]) -> dict[str, int]:
         "has_account_root_principal": has_account_root_principal,
         "has_iam_arn_principal": has_iam_arn_principal,
         "has_external_account_principal": int(any(
-        "arn:aws:iam::" in principal
-        and not principal.startswith(OWN_ACCOUNT_PREFIX)
-        for principal in principals )),
+            "arn:aws:iam::" in principal
+            and not principal.startswith(
+                f"arn:aws:iam::{own_account_id}:"
+            )
+            for principal in principals
+        )),
         "has_not_principal": has_not_principal,
 
         # Additional condition indicators.
         "has_mfa_condition": has_mfa_condition,
         "has_ip_condition": has_ip_condition,
         "has_secure_transport_condition": has_secure_transport_condition,
+        **_statement_context_features(statements),
     }

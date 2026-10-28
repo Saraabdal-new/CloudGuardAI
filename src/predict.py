@@ -10,6 +10,7 @@ import pandas as pd
 
 from .data_loader import parse_policy
 from .feature_engineering import extract_features
+from .labeling import DEFAULT_OWN_ACCOUNT_ID
 from .policy_scanner import scan_iam_policy
 
 
@@ -30,12 +31,16 @@ def load_model():
 def predict_policy(
     source: str | bytes | dict | Path,
     model: Any | None = None,
+    own_account_id: str = DEFAULT_OWN_ACCOUNT_ID,
 ) -> dict[str, Any]:
     """Return ML prediction and rule-based findings for one policy."""
     policy = parse_policy(source)
     classifier = model if model is not None else load_model()
 
-    features = extract_features(policy)
+    features = extract_features(
+    policy,
+    own_account_id=own_account_id,
+    )
 
     if FEATURES_PATH.exists():
         import json
@@ -59,7 +64,10 @@ def predict_policy(
         else 0.0
     )
 
-    findings = scan_iam_policy(policy)
+    findings = scan_iam_policy(
+    policy,
+    own_account_id=own_account_id,
+    )
 
     return {
         "prediction": prediction,

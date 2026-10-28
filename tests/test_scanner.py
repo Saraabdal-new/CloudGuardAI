@@ -21,11 +21,21 @@ def test_admin_is_critical():
     assert '"Action": "*"' in findings[0]["evidence"]
 
 
-def test_condition_neutralises_admin():
+def test_admin_with_mfa_condition_is_still_flagged():
     findings = scan_iam_policy(policy({
-        "Effect": "Allow", "Action": "*", "Resource": "*",
-        "Condition": {"Bool": {"aws:MultiFactorAuthPresent": "true"}}}))
-    assert findings == []
+        "Effect": "Allow",
+        "Action": "*",
+        "Resource": "*",
+        "Condition": {
+            "Bool": {
+                "aws:MultiFactorAuthPresent": "true"
+            }
+        },
+    }))
+
+    assert "IAM-001" in ids(findings)
+    assert highest_severity(findings) == "CRITICAL"
+    assert is_misconfigured(findings)
 
 
 def test_wildcard_action_on_specific_resource_is_advisory():
@@ -83,3 +93,35 @@ def test_scanner_matches_dataset_labels():
     df = pd.read_csv("data/raw/iam_policies.csv")
     predicted = [int(is_misconfigured(scan_policy_source(p))) for p in df["policy_json"]]
     assert predicted == df["label"].tolist()
+
+
+def test_s3_bucket_policy_changes_on_all_resources():
+    findings = scan_iam_policy(policy({
+        "Effect": "Allow",
+        "Action": [
+            "s3:PutBucketPolicy",
+            "s3:PutBucketAcl",
+        ],
+        "Resource": "*",
+    }))
+
+    assert is_misconfigured(findings)
+
+def test_assume_role_on_all_resources_is_flagged():
+    findings = scan_iam_policy(policy({
+        "Effect": "Allow",
+        "Action": "sts:AssumeRole",
+        "Resource": "*",
+    }))
+    
+    assert is_misconfigured(findings)
+
+
+def test_secrets_manager_read_on_all_resources_is_flagged():
+    findings = scan_iam_policy(policy({
+        "Effect": "Allow",
+        "Action": "secretsmanager:GetSecretValue",
+        "Resource": "*",
+    }))
+
+    assert is_misconfigured(findings)

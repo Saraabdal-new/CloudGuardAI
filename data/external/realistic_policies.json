@@ -1,0 +1,723 @@
+[
+    {
+      "id": "R01",
+      "description": "Full administrator access",
+      "expert_label": 1,
+      "difficulty": "clear",
+      "rationale": "Unrestricted access to every action and resource.",
+      "policy": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Effect": "Allow",
+            "Action": "*",
+            "Resource": "*"
+          }
+        ]
+      }
+    },
+    {
+      "id": "R02",
+      "description": "S3 full access on all buckets",
+      "expert_label": 1,
+      "difficulty": "clear",
+      "rationale": "Every S3 action on every bucket, including deletion and policy changes.",
+      "policy": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Effect": "Allow",
+            "Action": "s3:*",
+            "Resource": "*"
+          }
+        ]
+      }
+    },
+    {
+      "id": "R03",
+      "description": "IAM full access",
+      "expert_label": 1,
+      "difficulty": "clear",
+      "rationale": "Full control of identities and permissions leads to privilege escalation.",
+      "policy": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Effect": "Allow",
+            "Action": "iam:*",
+            "Resource": "*"
+          }
+        ]
+      }
+    },
+    {
+      "id": "R04",
+      "description": "PassRole + RunInstances on all resources",
+      "expert_label": 1,
+      "difficulty": "clear",
+      "rationale": "Classic escalation: launch an instance with any role.",
+      "policy": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Effect": "Allow",
+            "Action": [
+              "iam:PassRole",
+              "ec2:RunInstances"
+            ],
+            "Resource": "*"
+          }
+        ]
+      }
+    },
+    {
+      "id": "R05",
+      "description": "CreateAccessKey on all users",
+      "expert_label": 1,
+      "difficulty": "clear",
+      "rationale": "Can mint credentials for any user, including administrators.",
+      "policy": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Effect": "Allow",
+            "Action": "iam:CreateAccessKey",
+            "Resource": "*"
+          }
+        ]
+      }
+    },
+    {
+      "id": "R06",
+      "description": "Public S3 read through Principal *",
+      "expert_label": 1,
+      "difficulty": "debatable",
+      "rationale": "Public read is a standard finding, although it is legitimate for static sites.",
+      "policy": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Effect": "Allow",
+            "Action": "s3:GetObject",
+            "Resource": "arn:aws:s3:::company-assets/*",
+            "Principal": "*"
+          }
+        ]
+      }
+    },
+    {
+      "id": "R07",
+      "description": "Trust policy for an external account, no condition",
+      "expert_label": 1,
+      "difficulty": "clear",
+      "rationale": "External account can assume the role without ExternalId or other condition.",
+      "policy": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Effect": "Allow",
+            "Action": "sts:AssumeRole",
+            "Principal": {
+              "AWS": "arn:aws:iam::999988887777:root"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "R08",
+      "description": "Allow with NotAction on all resources",
+      "expert_label": 1,
+      "difficulty": "clear",
+      "rationale": "Everything except IAM is allowed, including services added in the future.",
+      "policy": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Effect": "Allow",
+            "NotAction": "iam:*",
+            "Resource": "*"
+          }
+        ]
+      }
+    },
+    {
+      "id": "R09",
+      "description": "KMS full access on all keys",
+      "expert_label": 1,
+      "difficulty": "clear",
+      "rationale": "Can decrypt or schedule deletion of any key.",
+      "policy": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Effect": "Allow",
+            "Action": "kms:*",
+            "Resource": "*"
+          }
+        ]
+      }
+    },
+    {
+      "id": "R10",
+      "description": "AssumeRole on every role",
+      "expert_label": 1,
+      "difficulty": "clear",
+      "rationale": "Can assume any role in the account, including administrators.",
+      "policy": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Effect": "Allow",
+            "Action": "sts:AssumeRole",
+            "Resource": "*"
+          }
+        ]
+      }
+    },
+    {
+      "id": "R11",
+      "description": "Bucket policy and ACL changes on all buckets",
+      "expert_label": 1,
+      "difficulty": "clear",
+      "rationale": "Allows making any bucket public or removing the public access block.",
+      "policy": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Effect": "Allow",
+            "Action": [
+              "s3:PutBucketPolicy",
+              "s3:PutBucketAcl",
+              "s3:PutBucketPublicAccessBlock"
+            ],
+            "Resource": "*"
+          }
+        ]
+      }
+    },
+    {
+      "id": "R12",
+      "description": "Lambda full access on all functions",
+      "expert_label": 1,
+      "difficulty": "clear",
+      "rationale": "Can modify any function code and run it with its role.",
+      "policy": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Effect": "Allow",
+            "Action": "lambda:*",
+            "Resource": "*"
+          }
+        ]
+      }
+    },
+    {
+      "id": "R13",
+      "description": "Read every secret",
+      "expert_label": 1,
+      "difficulty": "debatable",
+      "rationale": "Broad read of Secrets Manager is a data-exfiltration risk.",
+      "policy": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Effect": "Allow",
+            "Action": "secretsmanager:GetSecretValue",
+            "Resource": "*"
+          }
+        ]
+      }
+    },
+    {
+      "id": "R14",
+      "description": "Scoped S3 read plus IAM wildcard in a second statement",
+      "expert_label": 1,
+      "difficulty": "clear",
+      "rationale": "One safe statement hides an unrestricted IAM statement.",
+      "policy": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Effect": "Allow",
+            "Action": "s3:GetObject",
+            "Resource": "arn:aws:s3:::app-data/*"
+          },
+          {
+            "Effect": "Allow",
+            "Action": "iam:*",
+            "Resource": "*"
+          }
+        ]
+      }
+    },
+    {
+      "id": "R15",
+      "description": "Administrator access requiring MFA",
+      "expert_label": 1,
+      "difficulty": "debatable",
+      "rationale": "MFA reduces exposure, but full admin is still flagged by most scanners.",
+      "policy": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Effect": "Allow",
+            "Action": "*",
+            "Resource": "*",
+            "Condition": {
+              "Bool": {
+                "aws:MultiFactorAuthPresent": "true"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "R16",
+      "description": "CreatePolicyVersion on all policies",
+      "expert_label": 1,
+      "difficulty": "clear",
+      "rationale": "Escalation: rewrite a policy attached to oneself to grant admin.",
+      "policy": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Effect": "Allow",
+            "Action": "iam:CreatePolicyVersion",
+            "Resource": "*"
+          }
+        ]
+      }
+    },
+    {
+      "id": "R17",
+      "description": "AttachRolePolicy on all roles",
+      "expert_label": 1,
+      "difficulty": "clear",
+      "rationale": "Escalation: attach AdministratorAccess to any role.",
+      "policy": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Effect": "Allow",
+            "Action": "iam:AttachRolePolicy",
+            "Resource": "*"
+          }
+        ]
+      }
+    },
+    {
+      "id": "S01",
+      "description": "Read one S3 bucket",
+      "expert_label": 0,
+      "difficulty": "clear",
+      "rationale": "Read-only and limited to one bucket.",
+      "policy": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Effect": "Allow",
+            "Action": [
+              "s3:GetObject",
+              "s3:ListBucket"
+            ],
+            "Resource": [
+              "arn:aws:s3:::reports-prod",
+              "arn:aws:s3:::reports-prod/*"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "S02",
+      "description": "Lambda basic execution logging",
+      "expert_label": 0,
+      "difficulty": "clear",
+      "rationale": "Writes logs only; wildcards are inside the ARN, not a bare *.",
+      "policy": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Effect": "Allow",
+            "Action": [
+              "logs:CreateLogGroup",
+              "logs:CreateLogStream",
+              "logs:PutLogEvents"
+            ],
+            "Resource": "arn:aws:logs:*:*:*"
+          }
+        ]
+      }
+    },
+    {
+      "id": "S03",
+      "description": "CRUD on one DynamoDB table",
+      "expert_label": 0,
+      "difficulty": "clear",
+      "rationale": "Data-plane actions on one table and its indexes.",
+      "policy": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Effect": "Allow",
+            "Action": [
+              "dynamodb:GetItem",
+              "dynamodb:PutItem",
+              "dynamodb:UpdateItem",
+              "dynamodb:DeleteItem",
+              "dynamodb:Query"
+            ],
+            "Resource": [
+              "arn:aws:dynamodb:us-east-1:123456789012:table/orders",
+              "arn:aws:dynamodb:us-east-1:123456789012:table/orders/index/*"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "S04",
+      "description": "Send and receive on one SQS queue",
+      "expert_label": 0,
+      "difficulty": "clear",
+      "rationale": "Limited to one queue.",
+      "policy": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Effect": "Allow",
+            "Action": [
+              "sqs:SendMessage",
+              "sqs:ReceiveMessage",
+              "sqs:DeleteMessage"
+            ],
+            "Resource": "arn:aws:sqs:us-east-1:123456789012:jobs"
+          }
+        ]
+      }
+    },
+    {
+      "id": "S05",
+      "description": "Decrypt with one KMS key",
+      "expert_label": 0,
+      "difficulty": "clear",
+      "rationale": "Single action on a single key.",
+      "policy": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Effect": "Allow",
+            "Action": "kms:Decrypt",
+            "Resource": "arn:aws:kms:us-east-1:123456789012:key/app-key"
+          }
+        ]
+      }
+    },
+    {
+      "id": "S06",
+      "description": "Deny everything without MFA",
+      "expert_label": 0,
+      "difficulty": "clear",
+      "rationale": "Restrictive Deny pattern from AWS documentation.",
+      "policy": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Effect": "Deny",
+            "NotAction": [
+              "iam:CreateVirtualMFADevice",
+              "iam:EnableMFADevice",
+              "iam:GetUser",
+              "iam:ListMFADevices",
+              "iam:ListVirtualMFADevices",
+              "iam:ResyncMFADevice",
+              "sts:GetSessionToken"
+            ],
+            "Resource": "*",
+            "Condition": {
+              "BoolIfExists": {
+                "aws:MultiFactorAuthPresent": "false"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "S07",
+      "description": "Deny non-TLS access to a bucket",
+      "expert_label": 0,
+      "difficulty": "clear",
+      "rationale": "Best practice: Principal * appears only inside a Deny.",
+      "policy": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Effect": "Deny",
+            "Principal": "*",
+            "Action": "s3:*",
+            "Resource": [
+              "arn:aws:s3:::app-logs",
+              "arn:aws:s3:::app-logs/*"
+            ],
+            "Condition": {
+              "Bool": {
+                "aws:SecureTransport": "false"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "S08",
+      "description": "Lambda service trust policy",
+      "expert_label": 0,
+      "difficulty": "clear",
+      "rationale": "Only the Lambda service can assume the role.",
+      "policy": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Effect": "Allow",
+            "Action": "sts:AssumeRole",
+            "Principal": {
+              "Service": "lambda.amazonaws.com"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "S09",
+      "description": "Start and stop tagged dev instances",
+      "expert_label": 0,
+      "difficulty": "clear",
+      "rationale": "Scoped by a resource tag condition.",
+      "policy": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Effect": "Allow",
+            "Action": [
+              "ec2:StartInstances",
+              "ec2:StopInstances"
+            ],
+            "Resource": "arn:aws:ec2:us-east-1:123456789012:instance/*",
+            "Condition": {
+              "StringEquals": {
+                "ec2:ResourceTag/Environment": "dev"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "S10",
+      "description": "Cognito federated trust with conditions",
+      "expert_label": 0,
+      "difficulty": "clear",
+      "rationale": "Web identity trust restricted to one identity pool.",
+      "policy": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Effect": "Allow",
+            "Action": "sts:AssumeRoleWithWebIdentity",
+            "Principal": {
+              "Federated": "cognito-identity.amazonaws.com"
+            },
+            "Condition": {
+              "StringEquals": {
+                "cognito-identity.amazonaws.com:aud": "us-east-1:demo-pool"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "S11",
+      "own_account_id": "123456789012",
+      "description": "Trust policy for the same account",
+      "expert_label": 0,
+      "difficulty": "clear",
+      "rationale": "Account 123456789012 owns the resources, so this trust is internal. A scanner that does not know the owning account may flag it.",
+      "policy": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Effect": "Allow",
+            "Action": "sts:AssumeRole",
+            "Principal": {
+              "AWS": "arn:aws:iam::123456789012:root"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "S12",
+      "description": "CloudTrail bucket policy",
+      "expert_label": 0,
+      "difficulty": "clear",
+      "rationale": "Service principal with a narrow action set and an ACL condition.",
+      "policy": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Effect": "Allow",
+            "Principal": {
+              "Service": "cloudtrail.amazonaws.com"
+            },
+            "Action": "s3:GetBucketAcl",
+            "Resource": "arn:aws:s3:::org-trail-logs"
+          },
+          {
+            "Effect": "Allow",
+            "Principal": {
+              "Service": "cloudtrail.amazonaws.com"
+            },
+            "Action": "s3:PutObject",
+            "Resource": "arn:aws:s3:::org-trail-logs/AWSLogs/123456789012/*",
+            "Condition": {
+              "StringEquals": {
+                "s3:x-amz-acl": "bucket-owner-full-control"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "S13",
+      "description": "PassRole limited to one role and service",
+      "expert_label": 0,
+      "difficulty": "clear",
+      "rationale": "Recommended way to grant PassRole.",
+      "policy": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Effect": "Allow",
+            "Action": "iam:PassRole",
+            "Resource": "arn:aws:iam::123456789012:role/app-lambda-role",
+            "Condition": {
+              "StringEquals": {
+                "iam:PassedToService": "lambda.amazonaws.com"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "S14",
+      "description": "Describe EC2 resources",
+      "expert_label": 0,
+      "difficulty": "clear",
+      "rationale": "Read-only metadata calls; Resource * is required for Describe actions.",
+      "policy": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Effect": "Allow",
+            "Action": "ec2:Describe*",
+            "Resource": "*"
+          }
+        ]
+      }
+    },
+    {
+      "id": "S15",
+      "description": "Broad read-only access",
+      "expert_label": 0,
+      "difficulty": "debatable",
+      "rationale": "Read-only, but s3:Get* on * can read every object.",
+      "policy": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Effect": "Allow",
+            "Action": [
+              "s3:Get*",
+              "s3:List*",
+              "ec2:Describe*",
+              "cloudwatch:Get*"
+            ],
+            "Resource": "*"
+          }
+        ]
+      }
+    },
+    {
+      "id": "S16",
+      "description": "Self-service password change",
+      "expert_label": 0,
+      "difficulty": "clear",
+      "rationale": "Limited to the caller's own user.",
+      "policy": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Effect": "Allow",
+            "Action": [
+              "iam:ChangePassword",
+              "iam:GetUser",
+              "iam:ListMFADevices"
+            ],
+            "Resource": "arn:aws:iam::123456789012:user/${aws:username}"
+          }
+        ]
+      }
+    },
+    {
+      "id": "S17",
+      "description": "Two scoped statements",
+      "expert_label": 0,
+      "difficulty": "clear",
+      "rationale": "Read one bucket and write one log group.",
+      "policy": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Effect": "Allow",
+            "Action": "s3:GetObject",
+            "Resource": "arn:aws:s3:::app-data/*"
+          },
+          {
+            "Effect": "Allow",
+            "Action": [
+              "logs:CreateLogStream",
+              "logs:PutLogEvents"
+            ],
+            "Resource": "arn:aws:logs:us-east-1:123456789012:log-group:app:*"
+          }
+        ]
+      }
+    },
+    {
+      "id": "S18",
+      "description": "All S3 actions on a single bucket",
+      "expert_label": 0,
+      "difficulty": "clear",
+      "rationale": "Broad action set, but limited to one bucket.",
+      "policy": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Effect": "Allow",
+            "Action": "s3:*",
+            "Resource": [
+              "arn:aws:s3:::team-sandbox",
+              "arn:aws:s3:::team-sandbox/*"
+            ]
+          }
+        ]
+      }
+    }
+  ]

@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Any, Union
 
 from .data_loader import PolicyValidationError, as_list, parse_policy
-from .labeling import evaluate_statement
+from .labeling import DEFAULT_OWN_ACCOUNT_ID, evaluate_statement
 
 SEVERITY_ORDER = {"CRITICAL": 4, "HIGH": 3, "MEDIUM": 2, "LOW": 1}
 
@@ -72,6 +72,49 @@ RULE_CATALOG: dict[str, dict[str, str]] = {
         "recommendation": "Add an ExternalId or organization condition, or remove the external principal "
                           "if it is not needed.",
     },
+    "R8": {
+        "rule_id": "IAM-010",
+        "severity": "HIGH",
+        "title": "Sensitive S3 bucket policy or ACL modification",
+        "description": (
+            "The statement allows changing bucket policies or ACLs "
+            "across all resources."
+        ),
+        "recommendation": (
+            "Restrict these actions to specific bucket ARNs and tightly "
+            "control who can make access-control changes."
+        ),
+    },
+    
+    "R9": {
+        "rule_id": "IAM-011",
+        "severity": "HIGH",
+        "title": "Broad role assumption permission",
+        "description": (
+            "The statement allows assuming roles without restricting "
+            "the resource to specific role ARNs."
+        ),
+        "recommendation": (
+            "Restrict sts:AssumeRole to specific role ARNs and review "
+            "the target roles' trust policies."
+        ),
+    },
+
+    
+    "R10": {
+        "rule_id": "IAM-012",
+        "severity": "HIGH",
+        "title": "Unrestricted Secrets Manager read",
+        "description": (
+            "The statement allows reading secret values without "
+            "restricting access to specific secret ARNs."
+        ),
+        "recommendation": (
+            "Restrict secret-reading actions to the required secret ARNs "
+            "and grant access only to authorized principals."
+        ),
+    },
+
 }
 
 ADVISORY_WILDCARD_ACTION = {
@@ -126,7 +169,10 @@ def _finding(template: dict, label_rule: str, category: str, index: int, stmt: d
     }
 
 
-def scan_iam_policy(policy: Any) -> list[dict[str, Any]]:
+def scan_iam_policy(
+    policy: Any,
+    own_account_id: str = DEFAULT_OWN_ACCOUNT_ID,
+) -> list[dict[str, Any]]:
     """Return findings for an IAM policy dict. Never raises on malformed input."""
     if not isinstance(policy, dict):
         return [_invalid("Invalid policy", "The policy must be a JSON object.")]
@@ -146,7 +192,10 @@ def scan_iam_policy(policy: Any) -> list[dict[str, Any]]:
         if stmt["Effect"] != "Allow":
             continue
 
-        rules = evaluate_statement(stmt)  # R1-R7, condition-aware
+        rules = evaluate_statement(
+            stmt,
+            own_account_id=own_account_id,
+        )  # R1-R7, condition-aware
         for rule in rules:
             findings.append(_finding(RULE_CATALOG[rule], rule, "misconfiguration", index, stmt))
 
@@ -164,7 +213,10 @@ def scan_iam_policy(policy: Any) -> list[dict[str, Any]]:
     return findings
 
 
-def scan_policy_source(source: Union[str, bytes, dict, Path]) -> list[dict[str, Any]]:
+def scan_policy_source(
+    source: Union[str, bytes, dict, Path],
+    own_account_id: str = DEFAULT_OWN_ACCOUNT_ID,
+) -> list[dict[str, Any]]:
     """Scan a JSON string, file path or dict. Invalid input becomes a finding, not an exception."""
     try:
         policy = parse_policy(source)
@@ -172,7 +224,10 @@ def scan_policy_source(source: Union[str, bytes, dict, Path]) -> list[dict[str, 
         return [_invalid("Invalid policy", str(exc))]
     except (OSError, ValueError) as exc:
         return [_invalid("Unreadable policy", str(exc))]
-    return scan_iam_policy(policy)
+    return scan_iam_policy(
+    policy,
+    own_account_id=own_account_id,
+)
 
 
 def is_misconfigured(findings: list[dict[str, Any]]) -> bool:

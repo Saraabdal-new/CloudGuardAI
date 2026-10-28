@@ -195,6 +195,7 @@ def safe_escalation_scoped(rng: random.Random) -> Statement:
         "Resource": rng.choice(SERVICES["iam"]["resources"]),
     }
 
+
 def safe_deny(rng: random.Random) -> Statement:
     variant = rng.randrange(4)
     if variant == 0:
@@ -220,20 +221,19 @@ def safe_deny(rng: random.Random) -> Statement:
         "Condition": {"BoolIfExists": {"aws:MultiFactorAuthPresent": "false"}},
     }
 
-def safe_conditional(rng: random.Random) -> Statement:
-    """Broad Allow neutralised by a Condition.
 
-    This follows the project's simplified heuristic (a non-empty Condition
-    makes the statement safe). It is not a general AWS security guarantee.
-    """
-    action = rng.choice(["*", "iam:*", "s3:*", "kms:*", "ec2:*", "iam:PassRole"])
+
+def safe_conditional(rng: random.Random) -> Statement:
+    """Generate a conditionally allowed action scoped to a specific resource."""
+    service = rng.choice(["s3", "ec2", "lambda", "dynamodb", "logs"])
+    kind = rng.choice(["read", "read", "write"])
+
     return {
         "Effect": "Allow",
-        "Action": action,
-        "Resource": "*",
+        "Action": _action_value(_pick_actions(rng, service, kind)),
+        "Resource": _scoped_resource(rng, service),
         "Condition": rng.choice(CONDITIONS),
     }
-
 
 def safe_principal(rng: random.Random) -> Statement:
     variant = rng.randrange(4)
@@ -264,6 +264,37 @@ def safe_principal(rng: random.Random) -> Statement:
         "Condition": {
             "StringEquals": {"cognito-identity.amazonaws.com:aud": "eu-west-1:demo-pool"}
         },
+    }
+
+
+def safe_readonly_wildcard(rng: random.Random) -> Statement:
+    """Read-only wildcard on all resources, e.g. ec2:Describe* on *.
+
+    Rule R6 only fires on service-wide ":*" actions, and R3 only on
+    iam/kms/sts, so prefixes such as Describe*, List* and Get* are safe.
+    """
+    services = ["ec2", "ecs", "rds", "cloudwatch", "logs", "dynamodb",
+                "sqs", "sns", "lambda", "s3"]
+    verbs = ["Describe*", "List*", "Get*"]
+    chosen = rng.sample(services, rng.randint(1, 3))
+    actions = [f"{service}:{rng.choice(verbs)}" for service in chosen]
+    return {"Effect": "Allow", "Action": _action_value(actions), "Resource": "*"}
+
+
+def safe_deny_public_principal(rng: random.Random) -> Statement:
+    """Deny for every principal, a common hardening pattern."""
+    service = rng.choice(["s3", "sqs", "sns"])
+    condition = rng.choice([
+        {"Bool": {"aws:SecureTransport": "false"}},
+        {"StringNotEquals": {"aws:PrincipalOrgID": "o-exampleorgid"}},
+        {"NumericLessThan": {"s3:TlsVersion": "1.2"}},
+    ])
+    return {
+        "Effect": "Deny",
+        "Principal": rng.choice(["*", {"AWS": "*"}]),
+        "Action": rng.choice([f"{service}:*", _pick_actions(rng, service, "write")[0]]),
+        "Resource": _scoped_resource(rng, service),
+        "Condition": condition,
     }
 
 
@@ -350,6 +381,37 @@ def risky_r7(rng: random.Random) -> Statement:
     }
 
 
+def safe_ec2_describe_wildcard(rng: random.Random) -> Statement:
+    """Read-only EC2 metadata access; wildcard resources can be required."""
+    return {
+        "Effect": "Allow",
+        "Action": rng.choice([
+            "ec2:DescribeInstances",
+            "ec2:DescribeVolumes",
+            "ec2:DescribeImages",
+        ]),
+        "Resource": "*",
+    }
+
+
+def risky_assume_role_wildcard(rng: random.Random) -> Statement:
+    """Broad role assumption permission on every resource."""
+    return {
+        "Effect": "Allow",
+        "Action": "sts:AssumeRole",
+        "Resource": "*",
+    }
+
+
+def risky_secrets_manager_wildcard(rng: random.Random) -> Statement:
+    """Broad secret-reading permission on every resource."""
+    return {
+        "Effect": "Allow",
+        "Action": "secretsmanager:GetSecretValue",
+        "Resource": "*",
+    }
+
+
 SAFE_GENERATORS: list[tuple[Generator, int]] = [
     (safe_scoped, 6),
     (safe_discovery, 2),
@@ -358,6 +420,9 @@ SAFE_GENERATORS: list[tuple[Generator, int]] = [
     (safe_deny, 2),
     (safe_conditional, 3),
     (safe_principal, 3),
+    (safe_readonly_wildcard, 2),
+    (safe_deny_public_principal, 1),
+    (safe_ec2_describe_wildcard, 3),
 ]
 
 RISKY_GENERATORS: list[tuple[Generator, int]] = [
@@ -368,6 +433,8 @@ RISKY_GENERATORS: list[tuple[Generator, int]] = [
     (risky_r2, 2),
     (risky_r5, 2),
     (risky_r7, 2),
+    (risky_assume_role_wildcard, 2),
+    (risky_secrets_manager_wildcard, 2),
 ]
 
 
